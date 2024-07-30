@@ -1,14 +1,14 @@
 const WebSocket = require('ws');
 const PORT = 8080;
-const HOST = '0.0.0.0'; // Listen on all network interfaces
+const IP_ADDRESS = '172.20.10.12'; // Replace with your server's IP address
 
-const wss = new WebSocket.Server({ port: PORT, host: HOST });
+const wss = new WebSocket.Server({ port: PORT });
 
 wss.on('connection', ws => {
   console.log('Client connected');
+
   ws.on('message', message => {
     const data = JSON.parse(message);
-    // Broadcast the received frame to all clients
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(data.frame);
@@ -21,4 +21,4 @@ wss.on('connection', ws => {
   });
 });
 
-console.log(`WebSocket server is running on ws://<your-local-ip>:${PORT}`);
+console.log(`WebSocket server is running on ws://${IP_ADDRESS}:${PORT}`);
