@@ -2,6 +2,8 @@ const http = require('http');
 const WebSocket = require('ws');
 const PORT = process.env.PORT || 8080;
 
+let pythonClient = null;
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health') {
     res.writeHead(200);
@@ -18,38 +20,38 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 wss.on('connection', (ws) => {
-  console.log('Client connected');
-
-  ws.on('message', (message) => {
-    try {
-      //  const data = JSON.parse(message);
-       let data = message;
-       if (Buffer.isBuffer(data)) {
-        // Convert Buffer to string if it's binary data
-        data = data.toString('utf8');
-      }
-      // Broadcast to all clients except the sender
-      wss.clients.forEach((client) => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          console.log(data);
-          // client.send(data.frame);
-          client.send(data);
+    ws.on('message', (message) => {
+        const parsedMessage = JSON.parse(message);
+        console.log('connected');
+        if (parsedMessage.type === 'frame') {
+            // Broadcast the camera frames to all connected clients (excluding the Python client)
+            wss.clients.forEach((client) => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'frame', data: parsedMessage.data }));
+                }
+            });
+        } else if (parsedMessage.type === 'command') {
+            // Relay the command to the Python client
+            if (pythonClient && pythonClient.readyState === WebSocket.OPEN) {
+                pythonClient.send(JSON.stringify({ type: 'command', data: parsedMessage.data }));
+            }
+        } else if (parsedMessage.type === 'registerPythonClient') {
+            // Register Python client
+            console.log('Camera Sender connected');
+            pythonClient = ws;
         }
-      });
-    } catch (error) {
-      console.error('Failed to process message', error);
-    }
-  });
+    });
 
-  ws.on('close', () => {
-    console.log('Client disconnected');
-  });
-
-  ws.on('error', (error) => {
-    console.error('WebSocket error', error);
-  });
+    ws.on('close', () => {
+        // Handle client disconnection, reset pythonClient if necessary
+        if (ws === pythonClient) {
+            pythonClient = null;
+        }
+    });
 });
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+
