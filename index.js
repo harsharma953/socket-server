@@ -1,57 +1,60 @@
-const http = require('http');
-const WebSocket = require('ws');
+const http = require("http");
+const WebSocket = require("ws");
 const PORT = process.env.PORT || 8080;
 
-let pythonClient = null;
+let botClient = null;
 
 const server = http.createServer((req, res) => {
-  if (req.url === '/health') {
+  if (req.url === "/health") {
     res.writeHead(200);
-    res.end('OK');
+    res.end("OK");
   }
 });
 
 const wss = new WebSocket.Server({ noServer: true });
 
-server.on('upgrade', (request, socket, head) => {
+server.on("upgrade", (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit('connection', ws, request);
+    wss.emit("connection", ws, request);
   });
 });
 
-wss.on('connection', (ws) => {
-    ws.on('message', (message) => {
-        const parsedMessage = JSON.parse(message);
-        console.log('connected');
-        if (parsedMessage.type === 'frame') {
-            // Broadcast the camera frames to all connected clients (excluding the Python client)
-            wss.clients.forEach((client) => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'frame', data: parsedMessage.data }));
-                }
-            });
-        } else if (parsedMessage.type === 'command') {
-            // Relay the command to the Python client
-            if (pythonClient && pythonClient.readyState === WebSocket.OPEN) {
-                pythonClient.send(JSON.stringify({ type: 'command', data: parsedMessage.data }));
-            }
-        } else if (parsedMessage.type === 'registerPythonClient') {
-            // Register Python client
-            console.log('Camera Sender connected');
-            pythonClient = ws;
-        }
-    });
+wss.on("connection", (ws) => {
 
-    ws.on('close', () => {
-        // Handle client disconnection, reset pythonClient if necessary
-        if (ws === pythonClient) {
-            pythonClient = null;
+  ws.on("message", (message) => {
+    const parsedMessage = JSON.parse(message);
+    if (parsedMessage.type === "frame") {
+      // Broadcast the camera frame packet to all connected clients (excluding the Bot client)
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(parsedMessage));
         }
-    });
+      });
+    } else if (parsedMessage.type === "command") {
+      // Relay the command to the Python client
+      if (botClient && botClient.readyState === WebSocket.OPEN) {
+        botClient.send(JSON.stringify(parsedMessage));
+      }
+    } else if (parsedMessage.type === "connection") { //handle the connection between bot and portal
+      console.log(`${parsedMessage.client} is ${parsedMessage.data}`);
+      if (parsedMessage.data === "connected" && parsedMessage.client === "bot") {
+        botClient = ws;
+      }
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(parsedMessage));
+        }
+      });
+    }
+  });
+
+  ws.on("close", () => {
+    if (ws === botClient) {
+      botClient = null;
+    }
+  });
 });
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-
