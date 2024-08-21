@@ -23,20 +23,20 @@ wss.on("connection", (ws) => {
 
   ws.on("message", (message) => {
     const parsedMessage = JSON.parse(message);
+    const timestamp = new Date().toString();
     if (parsedMessage.type === "frame") {
-      // Broadcast the camera frame packet to all connected clients (excluding the Bot client)
       wss.clients.forEach((client) => {
         if (client !== ws && client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify(parsedMessage));
         }
       });
     } else if (parsedMessage.type === "command") {
-      // Relay the command to the Python client
       if (botClient && botClient.readyState === WebSocket.OPEN) {
+        console.log(`${parsedMessage.data} command sent to bot : ${timestamp}`);
         botClient.send(JSON.stringify(parsedMessage));
       }
-    } else if (parsedMessage.type === "connection") { //handle the connection between bot and portal
-      console.log(`${parsedMessage.client} is ${parsedMessage.data}`);
+    } else if (parsedMessage.type === "connection") { //handle the connection of bot and portal
+      console.log(`${parsedMessage.client} is ${parsedMessage.data} on ${timestamp}`);
       if (parsedMessage.data === "connected" && parsedMessage.client === "bot") {
         botClient = ws;
       }
