@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 8080;
 let botClient = null;
 
 const server = http.createServer((req, res) => {
-  if (req.url === "/health") {
+  if (req.url === "/test") {
     res.writeHead(200);
     res.end("OK");
   }
@@ -20,33 +20,46 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 wss.on("connection", (ws) => {
-
   ws.on("message", (message) => {
-    const parsedMessage = JSON.parse(message);
-    const timestamp = new Date().toString();
-    if (parsedMessage.type === "frame") {
-      wss.clients.forEach((client) => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(parsedMessage));
-        }
-      });
-    } else if (parsedMessage.type === "command") {
-      if (botClient && botClient.readyState === WebSocket.OPEN) {
-        console.log(`${parsedMessage.data} command sent to bot : ${timestamp}`);
-        botClient.send(JSON.stringify(parsedMessage));
+    try {
+      const parsedMessage = JSON.parse(message);
+      const timestamp = new Date().toISOString(); 
+
+      switch (parsedMessage.type) {
+        case "frame":
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify(parsedMessage));
+            }
+          });
+          break;
+        case "command":
+          if (parsedMessage.client === "portal" && botClient?.ws?.readyState === WebSocket.OPEN) {
+            console.log(`${parsedMessage.data} command sent to bot: ${timestamp}`);
+            botClient.ws.send(JSON.stringify(parsedMessage));
+          }
+          break;
+        case "connection":
+          console.log(`${parsedMessage.client} is ${parsedMessage.data}: ${timestamp}`);
+          if (parsedMessage.client === "bot") {
+            botClient = parsedMessage.data === "connected" ? { ws, parsedMessage } : null;
+            wss.clients.forEach((client) => {
+              if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(parsedMessage));
+              }
+            });
+          } else if (parsedMessage.client === "portal" && botClient?.ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(botClient.parsedMessage)); // Send initial message to portal
+          }
+          break;
+        default:
+          console.log('Error in message type')
       }
-    } else if (parsedMessage.type === "connection") { //handle the connection of bot and portal
-      console.log(`${parsedMessage.client} is ${parsedMessage.data} on ${timestamp}`);
-      if (parsedMessage.data === "connected" && parsedMessage.client === "bot") {
-        botClient = ws;
-      }
-      wss.clients.forEach((client) => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(parsedMessage));
-        }
-      });
+    } catch (error) {
+      console.error("Error parsing message:", error);
     }
   });
+
 
   ws.on("close", () => {
     if (ws === botClient) {
