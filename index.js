@@ -49,7 +49,7 @@ wss.on("connection", (ws) => {
               }
             });
           } else if (parsedMessage.client === "portal" && botClient?.ws?.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(botClient.parsedMessage)); // Send initial message to portal
+            ws.send(JSON.stringify(botClient.parsedMessage)); 
           }
           break;
         default:
