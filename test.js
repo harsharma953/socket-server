@@ -1,58 +1,75 @@
 
 
-const http = require('http');
-const WebSocket = require('ws');
-const PORT = process.env.PORT || 8080;
+// const http = require("http");
+// const WebSocket = require("ws");
+// const PORT = process.env.PORT || 8080;
 
-const server = http.createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200);
-    res.end('OK');
-  }
-});
+// let botClient = null;
 
-const wss = new WebSocket.Server({ noServer: true });
+// const server = http.createServer((req, res) => {
+//   if (req.url === "/test") {
+//     res.writeHead(200);
+//     res.end("OK");
+//   }
+// });
 
-server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, (ws) => {
-    wss.emit('connection', ws, request);
-  });
-});
+// const wss = new WebSocket.Server({ noServer: true });
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
+// server.on("upgrade", (request, socket, head) => {
+//   wss.handleUpgrade(request, socket, head, (ws) => {
+//     wss.emit("connection", ws, request);
+//   });
+// });
 
-  ws.on('message', (message) => {
-    try {
-      //  const data = JSON.parse(message);
-       let data = message;
-       if (Buffer.isBuffer(data)) {
-        // Convert Buffer to string if it's binary data
-        data = data.toString('utf8');
-        console.log(data);
-      }
-      // Broadcast to all clients except the sender
-      wss.clients.forEach((client) => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          console.log(data);
-          // client.send(data.frame);
-          client.send(data);
-        }
-      });
-    } catch (error) {
-      console.error('Failed to process message', error);
-    }
-  });
+// wss.on("connection", (ws) => {
+//   ws.on("message", (message) => {
+//     try {
+//       const parsedMessage = JSON.parse(message);
+//       const timestamp = new Date().toISOString(); 
 
-  ws.on('close', () => {
-    console.log('Client disconnected');
-  });
+//       switch (parsedMessage.type) {
+//         case "frame":
+//           wss.clients.forEach((client) => {
+//             if (client !== ws && client.readyState === WebSocket.OPEN) {
+//               client.send(JSON.stringify(parsedMessage));
+//             }
+//           });
+//           break;
+//         case "command":
+//           if (parsedMessage.client === "portal" && botClient?.ws?.readyState === WebSocket.OPEN) {
+//             console.log(`${parsedMessage.data} command sent to bot: ${timestamp}`);
+//             botClient.ws.send(JSON.stringify(parsedMessage));
+//           }
+//           break;
+//         case "connection":
+//           console.log(`${parsedMessage.client} is ${parsedMessage.data}: ${timestamp}`);
+//           if (parsedMessage.client === "bot") {
+//             botClient = parsedMessage.data === "connected" ? { ws, parsedMessage } : null;
+//             wss.clients.forEach((client) => {
+//               if (client !== ws && client.readyState === WebSocket.OPEN) {
+//                 client.send(JSON.stringify(parsedMessage));
+//               }
+//             });
+//           } else if (parsedMessage.client === "portal" && botClient?.ws?.readyState === WebSocket.OPEN) {
+//             ws.send(JSON.stringify(botClient.parsedMessage)); 
+//           }
+//           break;
+//         default:
+//           console.log('Error in message type')
+//       }
+//     } catch (error) {
+//       console.error("Error parsing message:", error);
+//     }
+//   });
 
-  ws.on('error', (error) => {
-    console.error('WebSocket error', error);
-  });
-});
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+//   ws.on("close", () => {
+//     if (ws === botClient) {
+//       botClient = null;
+//     }
+//   });
+// });
+
+// server.listen(PORT, () => {
+//   console.log(`Server is running on port ${PORT}`);
+// });
