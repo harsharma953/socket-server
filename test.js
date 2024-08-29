@@ -1,3 +1,33 @@
+import { ConnectionStatus, ClientType } from "./constants/enum";
+const WebSocket = require("ws");
+const PORT = 8080;
+
+let botClient = null;
+let portalClient = null;
+
+const wss = new WebSocket.Server({ port: PORT });
+
+wss.on("connection", (ws) => {
+  console.log("Client connected");
+
+  ws.on("message", (message) => {
+    const parsedMessage = JSON.parse(message);
+    console.log(`Received message: ${message}`);
+    if (parsedMessage.clientType.toLowerCase() == ClientType.BOT) {
+      botClient = ws;
+      console.log('Python client connected')
+      botClient.send(JSON.stringify({client:'bot',status:'connected'}))
+    }
+  });
+
+  ws.on("close", () => {
+    if (ws == botClient) {
+      console.log("Python client disconnected");
+      botClient = null;
+    }
+    console.log("Client disconnected");
+  });
+});
 
 
 // const http = require("http");
@@ -25,7 +55,7 @@
 //   ws.on("message", (message) => {
 //     try {
 //       const parsedMessage = JSON.parse(message);
-//       const timestamp = new Date().toISOString(); 
+//       const timestamp = new Date().toISOString();
 
 //       switch (parsedMessage.type) {
 //         case "frame":
@@ -51,7 +81,7 @@
 //               }
 //             });
 //           } else if (parsedMessage.client === "portal" && botClient?.ws?.readyState === WebSocket.OPEN) {
-//             ws.send(JSON.stringify(botClient.parsedMessage)); 
+//             ws.send(JSON.stringify(botClient.parsedMessage));
 //           }
 //           break;
 //         default:
@@ -61,7 +91,6 @@
 //       console.error("Error parsing message:", error);
 //     }
 //   });
-
 
 //   ws.on("close", () => {
 //     if (ws === botClient) {
